@@ -1,0 +1,20 @@
+<Solution>
+  <Folder Name="/SharedStaticFiles/" />
+  <Folder Name="/SharedStaticFiles/css/">
+    <File Path="SharedStaticFiles/css/bootstrap.min.css" />
+  </Folder>
+  <Folder Name="/SharedStaticFiles/css/ui/" />
+  <Folder Name="/SharedStaticFiles/js/">
+    <File Path="SharedStaticFiles/js/api.js" />
+    <File Path="SharedStaticFiles/js/bootstrap.bundle.min.js" />
+    <File Path="SharedStaticFiles/js/ckeditor.js" />
+  </Folder>
+  <Folder Name="/Элементы решения/">
+    <File Path=".gitignore" />
+  </Folder>
+  <Project Path="HomeLibrary.Application/HomeLibrary.Application.csproj" />
+  <Project Path="HomeLibrary.Domain/HomeLibrary.Domain.csproj" />
+  <Project Path="HomeLibrary.Infrastructure/HomeLibrary.Infrastructure.csproj" />
+  <Project Path="HomeLibrary.MvcWeb/HomeLibrary.MvcWeb.csproj" />
+  <Project Path="HomeLibrary.WebFormsNet/HomeLibrary.WebFormsNet.csproj" Id="2ea2bd2d-e04b-4a63-bf60-d8eca62149fe" />
+</Solution>

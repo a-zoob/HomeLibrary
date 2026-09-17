@@ -1,0 +1,25 @@
+## Visual Studio User Settings and Cache
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+## Build Outputs (Compilation artifacts)
+[Db]ebug/
+[Rr]elease/
+x64/
+x86/
+build/
+bin/
+obj/
+
+## Package Management
+packages/
+!.anchor
+*.nupkg
+
+## Operating System Files
+Thumbs.db
+ehthumbs.db
+Desktop.ini

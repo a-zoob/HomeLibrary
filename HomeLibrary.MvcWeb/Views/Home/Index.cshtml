@@ -1,0 +1,458 @@
+﻿@{
+    ViewData["Title"] = "Главная страница";
+}
+
+<style>
+    /* Разрешаем пользователю вручную изменять высоту редактора CKEditor */
+    .ck-editor__editable_inline {
+        /* Включаем вертикальный ресайз в браузере */
+        resize: vertical !important;
+        /* Задаем минимальную начальную высоту */
+        min-height: 140px !important;
+        /* Разрешаем полосу прокрутки */
+        overflow-y: auto !important;
+    }
+</style>
+
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="card-title h3 mb-1 text-dark fw-bold">Список книг в библиотеке</h2>
+                <p class="text-muted small mb-0">Управление книгами и оглавлениями</p>
+            </div>
+            <button class="btn btn-primary shadow-sm" id="btnCreateBook" data-bs-toggle="modal" data-bs-target="#bookModal">
+                <i class="bi bi-plus-lg"></i> Добавить книгу
+            </button>
+        </div>
+
+        <!-- Таблица списка книг -->
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="booksTable">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 8%">ID</th>
+                        <th style="width: 35%">Название</th>
+                        <th style="width: 25%">Автор</th>
+                        <th style="width: 12%">Год издания</th>
+                        <th style="width: 20%" class="text-end">Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="booksTableBody">
+                    <tr id="tableLoader">
+                        <td colspan="5" class="text-center py-5">
+                            <div class="spinner-border text-primary spinner-border-sm" role="status"></div>
+                            <span class="ms-2 text-muted">Загрузка данных из API...</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Блок пагинации -->
+        <div class="d-flex justify-content-between align-items-center mt-4">
+            <div class="text-muted small" id="paginationInfo">
+                Показано 0 из 0 записей
+            </div>
+            <nav aria-label="Навигация по страницам книг">
+                <ul class="pagination pagination-sm mb-0" id="paginationControls">
+                    <!-- Кнопки генерируются динамически -->
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+<!-- Модальное окно добавления/редактирования книги -->
+<div class="modal fade" id="bookModal" tabindex="-1" aria-labelledby="bookModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title fw-bold" id="bookModalLabel">Добавить новую книгу</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <form id="bookForm">
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label for="bookTitle" class="form-label text-secondary small fw-bold">Название книги</label>
+                            <input type="text" class="form-content form-control" id="bookTitle" required placeholder="Например: Песнь льда и пламени" />
+                        </div>
+                        <div class="col-md-4">
+                            <label for="bookPublishingYear" class="form-label text-secondary small fw-bold">Год издания</label>
+                            <input type="number" class="form-content form-control" id="bookPublishingYear" required min="1" max="2026" placeholder="2026" />
+                        </div>
+                        <div class="col-12">
+                            <label for="bookAuthor" class="form-label text-secondary small fw-bold">Автор</label>
+                            <input type="text" class="form-content form-control" id="bookAuthor" required placeholder="Роберт Мартин" />
+                        </div>
+                        <div class="col-12">
+                            <label for="bookTocHtml" class="form-label text-secondary small fw-bold">Оглавление (Структура глав и разделов)</label>
+                            <!-- Контрол HTML-редактора -->
+                            <textarea id="bookTocHtml" class="form-control"></textarea>
+                            <div class="form-text text-muted small">
+                                Используйте кнопки **Списки** на панели инструментов, чтобы визуально формировать вложенную структуру глав и разделов книги.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light p-3">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary px-4 shadow-sm" id="btnSaveBook">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@section Scripts {
+    <script>
+
+                let currentPage = 1;
+        const pageSize = 5;
+        let editingBookId = null;
+        
+        // Глобальная переменная для хранения инстанса HTML-редактора CKEditor 5
+        let htmlEditor;
+
+        // 1. Инициализация CKEditor 5 при загрузке DOM-структуры
+        document.addEventListener('DOMContentLoaded', () => {
+            ClassicEditor
+                .create(document.querySelector('#bookTocHtml'), {
+                    toolbar: ['bold', 'italic', 'bulletedList', 'numberedList', 'undo', 'redo'],
+                    language: 'ru'
+                })
+                .then(editor => {
+                    htmlEditor = editor; // Запоминаем контекст редактора
+                    loadBooks(currentPage);
+                })
+                .catch(error => {
+                    console.error('Ошибка инициализации CKEditor:', error);
+                    loadBooks(currentPage);
+                });
+        });
+
+        // 2. Обработка отправки формы (создание или редактирование)
+        document.getElementById('bookForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const btnSave = document.getElementById('btnSaveBook');
+            btnSave.disabled = true;
+            btnSave.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Сохранение...';
+
+            // Вытаскиваем чистый HTML-код из API CKEditor 5
+            const htmlContent = htmlEditor.getData();
+
+            const bookData = {
+                title: document.getElementById('bookTitle').value.trim(),
+                author: document.getElementById('bookAuthor').value.trim(),
+                publishingYear: parseInt(document.getElementById('bookPublishingYear').value),
+                // Конвертируем HTML-структуру в XML перед отправкой в репозиторий
+                tableOfContentsXml: convertHtmlToXml(htmlContent)
+            };
+
+            try {
+                if (editingBookId) {
+                    await HomeLibraryApi.update(editingBookId, bookData);
+                    alert('Данные книги успешно обновлены!');
+                } else {
+                    await HomeLibraryApi.create(bookData);
+                    alert('Книга успешно добавлена в библиотеку!');
+                }
+
+                const modalElement = document.getElementById('bookModal');
+                const modalInstance = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
+                modalInstance.hide();
+                
+                loadBooks(currentPage);
+            } catch (error) {
+                alert('Ошибка при сохранении данных. Проверьте подключение к бэкенду.');
+            } finally {
+                btnSave.disabled = false;
+                btnSave.textContent = 'Сохранить';
+            }
+        });
+
+        // 3. Обработчик сброса формы при закрытии модального окна
+        document.getElementById('bookModal').addEventListener('hidden.bs.modal', () => {
+            document.getElementById('bookForm').reset();
+            // Очищаем текстовый контент внутри редактора до пустого параграфа
+            htmlEditor.setData('<p>Глава 1</p>');
+            editingBookId = null;
+            document.getElementById('bookModalLabel').textContent = 'Добавить новую книгу';
+        });
+
+                /**
+         * 1. Загрузка постраничной порции книг из API и заполнение таблицы
+         */
+        async function loadBooks(page) {
+            currentPage = page;
+            const tableBody = document.getElementById('booksTableBody');
+            
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center py-5">
+                        <div class="spinner-border text-primary spinner-border-sm" role="status"></div>
+                        <span class="ms-2 text-muted">Загрузка данных из API...</span>
+                    </td>
+                </tr>`;
+
+            try {
+                const result = await HomeLibraryApi.getPaged(currentPage, pageSize);
+                tableBody.innerHTML = ''; 
+
+                if (!result.data || result.data.length === 0) {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">
+                                Библиотека пуста. Добавьте первую книгу!
+                            </td>
+                        </tr>`;
+                    updatePaginationControls(0, 0);
+                    return;
+                }
+
+                result.data.forEach(book => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="fw-bold text-secondary">${book.id}</td>
+                        <td class="text-dark fw-semibold">${escapeHtml(book.title)}</td>
+                        <td>${escapeHtml(book.author)}</td>
+                        <td><span class="badge bg-secondary p-2">${book.publishingYear}</span></td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary" onclick="HomeLibraryApi.downloadToc(${book.id})">
+                                    Скачать оглавление
+                                </button>
+                                <button class="btn btn-outline-secondary" onclick="editBook(${book.id})">
+                                    Редактировать
+                                </button>
+                                <button class="btn btn-outline-danger" onclick="deleteBook(${book.id})">
+                                    Удалить
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+
+                updatePaginationControls(result.totalCount, result.totalPages);
+            } catch (error) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-danger">
+                            Не удалось загрузить данные. Проверьте, запущен ли бэкенд API.
+                        </td>
+                    </tr>`;
+            }
+        }
+
+        /**
+         * 2. Отрисовка кнопок переключения пагинации
+         */
+        function updatePaginationControls(totalCount, totalPages) {
+            const info = document.getElementById('paginationInfo');
+            const controls = document.getElementById('paginationControls');
+            
+            if (totalCount === 0) {
+                info.textContent = 'Показано 0 из 0 записей';
+                controls.innerHTML = '';
+                return;
+            }
+            
+            const startIdx = (currentPage - 1) * pageSize + 1;
+            const endIdx = Math.min(currentPage * pageSize, totalCount);
+            info.textContent = `Показано с ${startIdx} по ${endIdx} из ${totalCount} записей`;
+
+            let html = '';
+            
+            // Кнопка Назад
+            html += `
+                <li class="page-item ${currentPage === 1 ? 'disabled' : ''}" style="cursor:${currentPage === 1 ? 'not-allowed' : 'pointer'}">
+                    <a class="page-link" onclick="${currentPage > 1 ? `loadBooks(\${currentPage - 1})` : ''}">Назад</a>
+                </li>`;
+
+            // Цифровые страницы
+            for (let i = 1; i <= totalPages; i++) {
+                html += `
+                    <li class="page-item ${i === currentPage ? 'active' : ''}" style="cursor:pointer">
+                        <a class="page-link" onclick="loadBooks(${i})">${i}</a>
+                    </li>`;
+            }
+
+            // Кнопка Вперед
+            html += `
+                <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}" style="cursor:${currentPage === totalPages ? 'not-allowed' : 'pointer'}">
+                    <a class="page-link" onclick="${currentPage < totalPages ? `loadBooks(\${currentPage + 1})` : ''}">Вперед</a>
+                </li>`;
+
+            controls.innerHTML = html;
+        }
+
+        /**
+         * 3. Перевод формы в режим редактирования и загрузка карточки книги
+         */
+        async function editBook(id) {
+            try {
+                const book = await HomeLibraryApi.getById(id);
+                
+                editingBookId = id;
+                document.getElementById('bookModalLabel').textContent = 'Редактировать книгу #' + id;
+
+                document.getElementById('bookTitle').value = book.title;
+                document.getElementById('bookAuthor').value = book.author;
+                document.getElementById('bookPublishingYear').value = book.publishingYear;
+
+                // Превращаем XML из базы данных обратно в HTML-структуру списков
+                const htmlStructure = convertXmlToHtml(book.tableOfContentsXml);
+                
+                // Передаем сгенерированный HTML в окно CKEditor 
+                htmlEditor.setData(htmlStructure);
+
+                const modalElement = document.getElementById('bookModal');
+                const modalInstance = new bootstrap.Modal(modalElement);
+                modalInstance.show();
+            } catch (error) {
+                alert('Не удалось загрузить данные книги для редактирования.');
+            }
+        }
+
+        /**
+         * 4. Удаление книги по идентификатору
+         */
+        async function deleteBook(id) {
+            const isConfirmed = confirm(`Вы уверены, что хотите удалить книгу #${id}? Это действие нельзя отменить.`);
+            if (!isConfirmed) return;
+
+            try {
+                await HomeLibraryApi.delete(id);
+                alert('Книга успешно удалена из библиотеки.');
+                
+                const tableBody = document.getElementById('booksTableBody');
+                if (tableBody.children.length === 1 && currentPage > 1) {
+                    currentPage--;
+                }
+                loadBooks(currentPage);
+            } catch (error) {
+                alert('Не удалось удалить книгу. Убедитесь, что бэкенд API доступен.');
+            }
+        }
+
+                /**
+         * 1. Конвертер: HTML-структура списков (CKEditor)  -> XML-строка (БД)
+         */
+         
+        function convertHtmlToXml(html) {
+            if (!html || html.trim() === '') {
+                return '<?xml version="1.0"?><TableOfContents />';
+            }
+
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(`<div>${html}</div>`, 'text/html');
+            let xmlResult = '<?xml version="1.0"?><TableOfContents>';
+            
+            const listItems = doc.querySelectorAll('div > ul > li, div > ol > li');
+            listItems.forEach((li, index) => {
+                const linkEl = li.querySelector('a');
+                const urlAttr = linkEl ? ` url="${escapeXmlAttribute(linkEl.getAttribute('href'))}"` : '';
+                
+                let title = '';
+                if (linkEl) {
+                    title = linkEl.textContent.trim();
+                } else {
+                    const nodes = Array.from(li.childNodes);
+                    let textParts = [];
+                    
+                    for (let node of nodes) {
+                        if (node.nodeName === 'UL' || node.nodeName === 'OL') {
+                            break; // Вложенный список начался, текст самой главы закончился
+                        }
+                        if (node.nodeType === Node.TEXT_NODE || node.nodeType === Node.ELEMENT_NODE) {
+                            textParts.push(node.textContent);
+                        }
+                    }
+                    title = textParts.join('').trim();
+                }
+
+                if (!title) title = `Глава ${index + 1}`;
+                
+                xmlResult += `<Chapter id="${index + 1}" title="${escapeXmlAttribute(title)}"${urlAttr} page="0">`;
+                
+                // Обрабатываем подпункты (Секции)
+                const subItems = li.querySelectorAll('ul > li, ol > li');
+                subItems.forEach((subLi, subIndex) => {
+                    const subLinkEl = subLi.querySelector('a');
+                    const subUrlAttr = subLinkEl ? ` url="${escapeXmlAttribute(subLinkEl.getAttribute('href'))}"` : '';
+                    const subTitle = subLinkEl ? subLinkEl.textContent.trim() : subLi.textContent.trim();
+                    
+                    xmlResult += `<Section id="${index + 1}.${subIndex + 1}" title="${escapeXmlAttribute(subTitle)}"${subUrlAttr} page="0" />`;
+                });
+                
+                xmlResult += '</Chapter>';
+            });
+            
+            xmlResult += '</TableOfContents>';
+            return xmlResult;
+        }
+
+
+        /**
+         * 2. Деконвертер: XML-строка (БД) -> HTML-структура списков (CKEditor)
+         */
+        function convertXmlToHtml(xmlString) {
+            if (!xmlString || xmlString.includes('<TableOfContents />') || !xmlString.includes('<Chapter')) {
+                return '<ul><li>Глава 1</li></ul>';
+            }
+
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
+            
+            if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
+                return '<ul><li>Ошибка чтения структуры оглавления</li></ul>';
+            }
+
+            const chapters = xmlDoc.getElementsByTagName('Chapter');
+            let htmlResult = '<ul>';
+
+            Array.from(chapters).forEach(chapter => {
+                const title = chapter.getAttribute('title') || '';
+                const url = chapter.getAttribute('url');
+                const content = url ? `<a href="${escapeHtml(url)}">${escapeHtml(title)}</a>` : escapeHtml(title);
+                htmlResult += `<li><strong>${content}</strong>`;
+                
+                const sections = chapter.getElementsByTagName('Section');
+                if (sections.length > 0) {
+                    htmlResult += '<ul>';
+                    Array.from(sections).forEach(section => {
+                        const subTitle = section.getAttribute('title') || '';
+                        const subUrl = section.getAttribute('url');
+                        const subContent = subUrl ? `<a href="${escapeHtml(subUrl)}">${escapeHtml(subTitle)}</a>` : escapeHtml(subTitle);
+                        htmlResult += `<li>${subContent}</li>`;
+                    });
+                    htmlResult += '</ul>';
+                }
+                htmlResult += '</li>';
+            });
+            
+            htmlResult += '</ul>';
+            return htmlResult;
+        }
+
+        /**
+         * 3. Экранирование спецсимволов для XML-атрибутов
+         */
+        function escapeXmlAttribute(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+        }
+
+        /**
+         * 4. Санитизация вывода текста для защиты от XSS
+         */
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+
+
+    </script>
+}

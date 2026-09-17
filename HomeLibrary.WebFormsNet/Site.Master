@@ -1,0 +1,58 @@
+<%@ Master Language="C#" AutoEventWireup="true" %>
+<!DOCTYPE html>
+<html lang="ru">
+<head runat="server">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Домашняя Библиотека (WebForms .NET Framework)</title>
+    
+    <!-- Подключаем общие стили Bootstrap через правило /shared -->
+    <link rel="stylesheet" href="/shared/css/bootstrap.min.css" />
+    
+    <style>
+        .ck-editor__editable_inline {
+            resize: vertical !important;
+            min-height: 140px !important;
+            overflow-y: auto !important;
+        }
+    </style>
+    <asp:ContentPlaceHolder ID="head" runat="server">
+    </asp:ContentPlaceHolder>
+</head>
+<body class="bg-light">
+    <form id="mainForm" runat="server">
+        <header>
+            <nav class="navbar navbar-expand-sm navbar-dark bg-secondary mb-4">
+                <div class="container-fluid">
+                    <a class="navbar-brand" href="#">Домашняя Библиотека (WebForms Legacy)</a>
+                </div>
+            </nav>
+        </header>
+
+        <div class="container">
+            <asp:ContentPlaceHolder ID="MainContent" runat="server">
+            </asp:ContentPlaceHolder>
+        </div>
+
+        <footer class="footer border-top text-muted mt-5 py-3 bg-white fixed-bottom">
+            <div class="container text-center">
+                &copy; 2026 - HomeLibrary - Clean Architecture & Multi-UI
+            </div>
+        </footer>
+    </form>
+
+    <script src="/shared/js/bootstrap.bundle.min.js"></script>
+    <script src="/shared/js/ckeditor.js"></script>
+
+    <script>
+        // адрес Minimal API бэкенда
+        window.HOME_LIBRARY_API_URL = '<%= System.Configuration.ConfigurationManager.AppSettings["ApiSettings:BaseUrl"] %>';
+    </script>
+    
+    <!-- Подключаем общую логику взаимодействия, которая дублируется с MVC -->
+    <script src="/shared/js/api.js"></script>
+
+    <asp:ContentPlaceHolder ID="PageScripts" runat="server">
+    </asp:ContentPlaceHolder>
+</body>
+</html>

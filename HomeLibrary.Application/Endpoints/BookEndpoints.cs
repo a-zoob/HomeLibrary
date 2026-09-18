@@ -1,7 +1,9 @@
-﻿using System.Text.RegularExpressions;
+﻿using HomeLibrary.Application.Helpers;
 using HomeLibrary.Domain.Entities;
 using HomeLibrary.Domain.Repositories;
 using HomeLibrary.Domain.Services;
+using System.Text.RegularExpressions;
+using System.Xml;
 
 namespace HomeLibrary.Application.Endpoints
 {
@@ -38,26 +40,62 @@ namespace HomeLibrary.Application.Endpoints
             });
 
             // 3. Создание новой книги
+            //group.MapPost("/", async (Book book, IBookRepository repository) =>
+            //{
+            //    // Защита от передачи "0" во внутренний трекер
+            //    book.Id = 0;
+
+            //    if (string.IsNullOrWhiteSpace(book.TableOfContentsXml))
+            //    {
+            //        book.TableOfContentsXml = "<?xml version=\"1.0\"?><TableOfContents />";
+            //    }
+            //    else
+            //    {
+            //        // Удаляем декларацию кодировки (encoding="..."), если пользователь вставил её вручную
+            //        book.TableOfContentsXml = Regex.Replace(book.TableOfContentsXml, @"encoding=[""'][^""']*[""']", "", RegexOptions.IgnoreCase);
+            //    }
+
+            //    await repository.AddAsync(book);
+            //    return Results.Created($"/api/books/{book.Id}", book);
+            //});
+
+
             group.MapPost("/", async (Book book, IBookRepository repository) =>
             {
                 // Защита от передачи "0" во внутренний трекер
                 book.Id = 0;
 
-                if (string.IsNullOrWhiteSpace(book.TableOfContentsXml))
-                {
-                    book.TableOfContentsXml = "<?xml version=\"1.0\"?><TableOfContents />";
-                }
-                else
-                {
-                    // Удаляем декларацию кодировки (encoding="..."), если пользователь вставил её вручную
-                    book.TableOfContentsXml = Regex.Replace(book.TableOfContentsXml, @"encoding=[""'][^""']*[""']", "", RegexOptions.IgnoreCase);
-                }
+                // Применяем метод расширения
+                book.TableOfContentsXml = book.TableOfContentsXml.SanitizeAndValidateXml();
 
                 await repository.AddAsync(book);
                 return Results.Created($"/api/books/{book.Id}", book);
             });
 
+
+
             // 4. Редактирование книги
+            //group.MapPut("/{id:int}", async (int id, Book updatedBook, IBookRepository repository) =>
+            //{
+            //    var existingBook = await repository.GetByIdAsync(id);
+            //    if (existingBook is null) return Results.NotFound($"Книга с ID {id} не найдена.");
+
+            //    existingBook.Title = updatedBook.Title;
+            //    existingBook.Author = updatedBook.Author;
+            //    existingBook.PublishingYear = updatedBook.PublishingYear;
+            //    if (string.IsNullOrWhiteSpace(updatedBook.TableOfContentsXml))
+            //    {
+            //        existingBook.TableOfContentsXml = "<?xml version=\"1.0\"?><TableOfContents />";
+            //    }
+            //    else
+            //    {
+            //        // Точно так же защищаем операцию обновления от ошибок ручного ввода XML
+            //        existingBook.TableOfContentsXml = Regex.Replace(updatedBook.TableOfContentsXml, @"encoding=[""'][^""']*[""']", "", RegexOptions.IgnoreCase);
+            //    }
+
+            //    await repository.UpdateAsync(existingBook);
+            //    return Results.NoContent();
+            //});
             group.MapPut("/{id:int}", async (int id, Book updatedBook, IBookRepository repository) =>
             {
                 var existingBook = await repository.GetByIdAsync(id);
@@ -66,16 +104,9 @@ namespace HomeLibrary.Application.Endpoints
                 existingBook.Title = updatedBook.Title;
                 existingBook.Author = updatedBook.Author;
                 existingBook.PublishingYear = updatedBook.PublishingYear;
-                if (string.IsNullOrWhiteSpace(updatedBook.TableOfContentsXml))
-                {
-                    existingBook.TableOfContentsXml = "<?xml version=\"1.0\"?><TableOfContents />";
-                }
-                else
-                {
-                    // Точно так же защищаем операцию обновления от ошибок ручного ввода XML
-                    existingBook.TableOfContentsXml = Regex.Replace(updatedBook.TableOfContentsXml, @"encoding=[""'][^""']*[""']", "", RegexOptions.IgnoreCase);
-                }
-               
+
+                existingBook.TableOfContentsXml = updatedBook.TableOfContentsXml.SanitizeAndValidateXml();
+
                 await repository.UpdateAsync(existingBook);
                 return Results.NoContent();
             });

@@ -75,14 +75,16 @@
 //    }
 //}
 
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using Microsoft.Data.SqlClient;
-using Microsoft.EntityFrameworkCore;
-using System.Data;
 using HomeLibrary.Domain.Entities;
 using HomeLibrary.Domain.Repositories;
 using HomeLibrary.Infrastructure.Data;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.SqlTypes;
+using System.Threading.Tasks;
+using System.Xml;
 
 namespace HomeLibrary.Infrastructure.Repositories
 {
@@ -122,12 +124,15 @@ namespace HomeLibrary.Infrastructure.Repositories
         // 4. Добавление новой книги с получением сгенерированного ID из процедуры
         public async Task AddAsync(Book book)
         {
-            var paramTitle = new SqlParameter("@Title", SqlDbType.NVarChar, 250) { Value = book.Title };
-            var paramAuthor = new SqlParameter("@Author", SqlDbType.NVarChar, 150) { Value = book.Author };
-            var paramPublishingYear = new SqlParameter("@PublishingYear", SqlDbType.Int) { Value = book.PublishingYear };
-            var paramXml = new SqlParameter("@TableOfContentsXml", SqlDbType.Xml) { Value = book.TableOfContentsXml };
+            // 1. переводим строку в SqlXml (уже валидированную в API)
+            var sqlXmlValue = new SqlXml(new XmlTextReader(new StringReader(book.TableOfContentsXml)));
 
-            // Создаем выходной параметр для получения сгенерированного ID
+            // 2. защита от инъекций
+            var paramTitle = new SqlParameter("@Title", SqlDbType.NVarChar, 250) { Value = book.Title ?? (object)DBNull.Value };
+            var paramAuthor = new SqlParameter("@Author", SqlDbType.NVarChar, 150) { Value = book.Author ?? (object)DBNull.Value };
+            var paramPublishingYear = new SqlParameter("@PublishingYear", SqlDbType.Int) { Value = book.PublishingYear };
+            var paramXml = new SqlParameter("@TableOfContentsXml", SqlDbType.Xml) { Value = sqlXmlValue };
+
             var paramId = new SqlParameter("@Id", SqlDbType.Int)
             {
                 Direction = ParameterDirection.Output
@@ -137,7 +142,6 @@ namespace HomeLibrary.Infrastructure.Repositories
                 "EXEC [dbo].[sp_InsertBook] @Title, @Author, @PublishingYear, @TableOfContentsXml, @Id OUTPUT",
                 paramTitle, paramAuthor, paramPublishingYear, paramXml, paramId);
 
-            // Присваиваем полученное значение свойству Id сущности
             if (paramId.Value != null && paramId.Value != DBNull.Value)
             {
                 book.Id = (int)paramId.Value;
@@ -145,14 +149,19 @@ namespace HomeLibrary.Infrastructure.Repositories
         }
 
 
+
+
+
         // 5. Редактирование книги через хранимую процедуру
         public async Task UpdateAsync(Book book)
         {
+            var sqlXmlValue = new SqlXml(new XmlTextReader(new StringReader(book.TableOfContentsXml)));
+
             var paramId = new SqlParameter("@Id", SqlDbType.Int) { Value = book.Id };
-            var paramTitle = new SqlParameter("@Title", SqlDbType.NVarChar, 250) { Value = book.Title };
-            var paramAuthor = new SqlParameter("@Author", SqlDbType.NVarChar, 150) { Value = book.Author };
+            var paramTitle = new SqlParameter("@Title", SqlDbType.NVarChar, 250) { Value = book.Title ?? (object)DBNull.Value };
+            var paramAuthor = new SqlParameter("@Author", SqlDbType.NVarChar, 150) { Value = book.Author ?? (object)DBNull.Value };
             var paramPublishingYear = new SqlParameter("@PublishingYear", SqlDbType.Int) { Value = book.PublishingYear };
-            var paramXml = new SqlParameter("@TableOfContentsXml", SqlDbType.Xml) { Value = book.TableOfContentsXml };
+            var paramXml = new SqlParameter("@TableOfContentsXml", SqlDbType.Xml) { Value = sqlXmlValue };
 
             await _context.Database.ExecuteSqlRawAsync(
                 "EXEC [dbo].[sp_UpdateBook] @Id, @Title, @Author, @PublishingYear, @TableOfContentsXml",

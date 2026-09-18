@@ -29,21 +29,37 @@ namespace HomeLibrary.Infrastructure.Migrations
             // 2. Создание книги
             migrationBuilder.Sql(@"
                 CREATE PROCEDURE [dbo].[sp_InsertBook]
-                    @Title NVARCHAR(250),
-                    @Author NVARCHAR(150),
-                    @PublishingYear INT,
-                    @TableOfContentsXml XML,
-                    @Id INT OUTPUT -- Переводим на OUTPUT
-                AS
-                BEGIN
-                    SET NOCOUNT ON;
+                        @Title NVARCHAR(250),
+                        @Author NVARCHAR(150),
+                        @PublishingYear INT,
+                        @TableOfContentsXml XML,
+                        @Id INT OUTPUT
+                    AS
+                    BEGIN
+                        SET NOCOUNT ON;
 
-                    INSERT INTO [dbo].[Books] ([Title], [Author], [PublishingYear], [TableOfContentsXml])
-                    VALUES (@Title, @Author, @PublishingYear, @TableOfContentsXml);
+                        BEGIN TRANSACTION;
 
-                    -- Записываем сгенерированный ID в выходной параметр
-                    SET @Id = SCOPE_IDENTITY();
-                END;
+                        BEGIN TRY
+       
+                            INSERT INTO [dbo].[Books] ([Title], [Author], [PublishingYear], [TableOfContentsXml])
+                            VALUES (@Title, @Author, @PublishingYear, @TableOfContentsXml);
+
+                            SET @Id = SCOPE_IDENTITY();
+
+                           COMMIT TRANSACTION;
+                        END TRY
+                        BEGIN CATCH
+                            IF @@TRANCOUNT > 0
+                            BEGIN
+                                ROLLBACK TRANSACTION;
+                            END;
+
+                            SET @Id = NULL;
+
+                            THROW;
+                        END CATCH;
+                    END;
                 ");
 
             // 3. Редактирование книги

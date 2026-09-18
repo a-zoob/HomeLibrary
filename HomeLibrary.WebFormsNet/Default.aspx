@@ -23,7 +23,7 @@
                 <table class="table table-hover align-middle mb-0" id="booksTable">
                     <thead class="table-light">
                         <tr>
-                            <th style="width: 8%">ID</th>
+                           <%-- <th style="width: 8%">ID</th>--%>
                             <th style="width: 35%">Название</th>
                             <th style="width: 25%">Автор</th>
                             <th style="width: 12%">Год издания</th>
@@ -214,18 +214,29 @@
 
                 result.data.forEach(book => {
                     const row = document.createElement('tr');
+                    // row.innerHTML = `
+                    //     <td class="fw-bold text-secondary">${book.id}</td>
+                    //     <td class="text-dark fw-semibold">${escapeHtml(book.title)}</td>
+                    //     <td>${escapeHtml(book.author)}</td>
+                    //     <td><span class="badge bg-light text-dark border p-2">${book.publishingYear}</span></td>
+                    //     <td class="text-end">
+                    //         <div class="btn-group btn-group-sm">
+                    //             <button type="button" class="btn btn-outline-secondary" onclick="HomeLibraryApi.downloadToc(${book.id})">Скачать XML</button>
+                    //             <button type="button" class="btn btn-outline-secondary" onclick="editBook(${book.id})">Изменить</button>
+                    //             <button type="button" class="btn btn-outline-danger" onclick="deleteBook(${book.id})">Удалить</button>
+                    //         </div>
+                    //     </td>`;
                     row.innerHTML = `
-                        <td class="fw-bold text-secondary">${book.id}</td>
-                        <td class="text-dark fw-semibold">${escapeHtml(book.title)}</td>
-                        <td>${escapeHtml(book.author)}</td>
-                        <td><span class="badge bg-light text-dark border p-2">${book.publishingYear}</span></td>
-                        <td class="text-end">
-                            <div class="btn-group btn-group-sm">
-                                <button type="button" class="btn btn-outline-secondary" onclick="HomeLibraryApi.downloadToc(${book.id})">Скачать XML</button>
-                                <button type="button" class="btn btn-outline-secondary" onclick="editBook(${book.id})">Изменить</button>
-                                <button type="button" class="btn btn-outline-danger" onclick="deleteBook(${book.id})">Удалить</button>
-                            </div>
-                        </td>`;
+    <td class="text-dark fw-semibold">${escapeHtml(book.title)}</td>
+    <td>${escapeHtml(book.author)}</td>
+    <td><span class="badge bg-light text-dark border p-2">${book.publishingYear}</span></td>
+    <td class="text-end">
+        <div class="btn-group btn-group-sm">
+            <button type="button" class="btn btn-outline-secondary" onclick="HomeLibraryApi.downloadToc(${book.id})">Скачать XML</button>
+            <button type="button" class="btn btn-outline-secondary" onclick="editBook(${book.id})">Изменить</button>
+            <button type="button" class="btn btn-outline-danger" onclick="deleteBook(${book.id})">Удалить</button>
+        </div>
+    </td>`;
                     tableBody.appendChild(row);
                 });
 
